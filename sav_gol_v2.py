@@ -1,49 +1,58 @@
 # -*- coding: utf-8 -*-
 """
-
-version semi operativa.
-limpiar codigo y guardar como tif.. y cambiar nombre en caso de no seguir con savitky
-
 Created on Thu Sep 13 17:36:39 2018
-Title: SAvitzky-Golay final final final del fin pre ultimo
-la idea es que este script lea las imagenes separadas en base a cada uno de los productos
-luego ejecute un filtro en modis eliminando aquellos pixeles con una mala calidad de datos
-en aquellos casos donde los datos disponibles sean menos del 80% el pizzel se evalura como un no
-data
+Title: Analisis / Relleno NDVI MODIS. Savitzky-Golay 
+
+la idea, leer imagenes de NDVI (series de tiempo). Luego analizar a nivel de pixel,
+y generar un analisis de calidad y relleno de datos mediante algún algoritmo.
+
+- Lee imagenes HDF / TIF (en este caso se esta trabajando en TIF, 
+    pero puede funcionar en con HDF)
+- Separa en subsets de datos, en series de tiempo por pixel
+- "Relleno" de datos faltantes. (actualmente en spline, comparar otros metodos)
+
+FALTA:
+- mejorar convenciones del codigo para "lectura"
+- optimizar el codigo
+- probar otros metodos de datos
+- "chequear uso de anomalia"
+- comparar resultados
+
+es que este script lea las imagenes separadas en base a cada uno de los productos
+luego ejecute un filtro en modis eliminando aquellos pixeles con una 
+mala calidad de datos en aquellos casos donde los datos disponibles sean menos 
+del 80% el pizzel se evalura como un no data
 
 este proceso esta separado en diferentes etapas, es de tipo experimental, por lo que no 
 es optimizado.
 
 existe otras formas de hacer un año tipo de las imagenes.
 
-@author: fanr
+@author: fanr / rakiduam
 """
 
+# paquetes necesarios de python
 import os, errno
 from osgeo import gdal
 from glob import glob
 from scipy.signal import savgol_filter
 #from scipy.signal import savgol_coeffs
-#from scipy.signal import savgol_coeffs
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 import numpy as np
 #import pandas as pd
 
+# directorios de trabajo de los datos
 imgMOD = ('MOD13Q1')
 entDIR = ('I:\\version00\\MOD13Q1\\subset_00\\')
 salDIR = ('I:\\' + 'version01' + '\\' )
 
+# chequea si existe el directorio de salida y sino, lo crea.
 try:
     os.makedirs(salDIR)
 except OSError as e:
     if e.errno != errno.EEXIST:
         raise
-
-#path, dirs, files = next(os.walk("D:\\" + imgMOD))
-#fil=pd.DataFrame.from_records(files)
-#file_count = len(str(files))
-#pd.Series([2, 1, 3, 3], name='A').unique()
 
 # MOD13Q1.A2001017.h11v10.006.2015140091834-sd1.tif
 # 'E:\\version00\\MOD13Q1\\subset_00\\MOD13Q1.A????.001.h11v11.006.-sd1.tif'
@@ -51,17 +60,20 @@ except OSError as e:
 HDF = glob(entDIR  + imgMOD +'.A' + '*' + '.h11v11.' + '006.' + '*-sd1.tif')
 count = 1
 
+# generacion de la serie de tiempo a partir de las imagenes disponibles
+# reshape de la imagen a un vector y en un subset de pixeles (por memoria)
 for hdf in HDF:
-    
     tif=gdal.Open(hdf)
     band = tif.GetRasterBand(1)
+    # subset de pixeles. Esto eventualmente debe hacerse hasta que se complete la imagen
     bandArray = band.ReadAsArray()[100:200,:]
     #bandArray=bandArray
     # row                    ;    # col
     row = bandArray.shape[0] ; col = bandArray.shape[1]
-
+    # la forma en que se reordena los datos, de matriz a vector. de forma explicita.
     b1=np.array(np.reshape(bandArray,col*row, order='C'))
-
+    
+    # generacion de nuevo array "temporal"
     if count == 1:
         gTifArray = b1
     else:
@@ -69,18 +81,28 @@ for hdf in HDF:
     
     count=count+1
 
+# sanidad de variables. aunque podria ser "recurrente"
 del (b1, band, bandArray, count) 
 
-#0.0001 ndvi transform value
+# pseudo tranformacion de enteros 16bit a valores de ndvi ( 0.0001 )
+# esto hace que el arreglo original de 16 bit, se transforme a 64bit
+# lo que hace que la memoria ram usada aumente.
 aa = np.ones(gTifArray.shape)*gTifArray
+
+# debido a que el NoData original, en el TIF se representa como -3000
+# se corrige el valores a un -99999, para luego transformar a
+# NaN. Este paso podria simplificarse y ser más directo.
 aa[aa == -3000] = [-99999]
 aa=aa*0.0001
 aa[aa == -9.9999] = ['NaN']
 
+# este paso es para generar un relleno de datos mediantel el uso de una 
+# funcion tipo spline. En este caso debido a que los valores no son se 
 x1 = np.array(aa[11600]) #; x;x.shape[0]
 x2 = np.column_stack( (np.arange(1,391), x1) )
 x3 = x2[np.logical_not(np.isnan(x1))]
 
+#filtrado de la serie se eliminan aquellos datos tipo NaN
 x2[x2[:,:] != 'NaN']
 
 #y1 = savgol_filter(x, 5, 2, mode='wrap'); print(y1)
@@ -98,7 +120,6 @@ spl(np.arange(1,391))
 
 a=np.convolve(x1, x2, 'same')
 
-
 import matplotlib.pyplot as plt
 plt.plot(np.arange(1,391), x1, 'ro', ms=5)
 plt.plot(np.arange(1,391), spl(np.arange(1,391)), 'g', lw=3, alpha=0.7)
@@ -109,30 +130,6 @@ plt.show()
 # por savitzky golay.
 #vacio = np.empty((gTifArray.shape[0], gTifArray.shape[1]), dtype = np.int64)
 #gTifArray.dtype=np.float64
-
-#x=gTifArray[gTifArray==-3000]=['NaN']
-
-#x=np.array(aa[6772],dtype='float64'); x;x.shape[0]
-#x[x==-3000]=['NaN'];x 
-#
-#for i in range(6772, 6772+100):
-#    
-#    x = gTifArray[i] #; x
-#    r = x[x==-3000]  #; r; r.shape[0]
-#    
-#    if r.shape[0] > 15:
-#        #nada
-#        y1 = savgol_filter(x, 5, 2, mode='nearest'); print(y1)
-#    else:
-#        y2 = savgol_filter(r, 5, 2, mode='nearest'); print(y2)
-#        #w2 = savgol_coeffs(5,2)
-#    
-#    print(i)
-#
-
-
-
-
 
 ### anomalia estandirizada.
 #def anom(x):
