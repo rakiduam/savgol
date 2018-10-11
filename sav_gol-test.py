@@ -1,3 +1,8 @@
+"""
+ python 2
+ codigo base ejemplo de savitzky golay
+"""
+
 import numpy as np
 from scipy.signal import savgol_filter
 
