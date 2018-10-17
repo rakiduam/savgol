@@ -1,2 +1,2 @@
 # savgol
-ejemplos de codigo usados para procesamiento
+(00_ * ) ejemplos de codigo usados para procesamiento
