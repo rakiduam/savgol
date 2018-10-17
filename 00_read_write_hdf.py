@@ -1,9 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Sep 11 18:14:39 2018
-from: https://gis.stackexchange.com/questions/174017/extract-scientific-layers-from-modis-hdf-dataeset-using-python-gdal/174018
-other: https://gis.stackexchange.com/questions/141776/read-hdf4-data-using-python
+
+source: 
++ https://gis.stackexchange.com/questions/174017/extract-scientific-layers-from-modis-hdf-dataeset-using-python-gdal/174018
++ https://gis.stackexchange.com/questions/141776/read-hdf4-data-using-python
+
 @author: Kersten
+@edited: rakiduam
+
+python: 3.5
+
+para usar en python: 2.7 se necesitan leves modificaciones, parentesis y una que otra referente a estructura
+
 """
 
 #%reset -f
@@ -46,6 +55,9 @@ def hdf_subdataset_extraction(hdf_file, dst_dir, subdataset):
     out_ds.SetGeoTransform(band_ds.GetGeoTransform())
     out_ds.SetProjection(band_ds.GetProjection())
     out_ds.GetRasterBand(1).WriteArray(band_array)
+    
+    # el no data deberia tal vez guardarse de otra forma. no recuerdo si tiff soporta el NaN
+    # dependiendo del tipo de dato de salia, en este caso es GDT_Int16, por lo que es el valor a continuacion
     out_ds.GetRasterBand(1).SetNoDataValue(-32768)
 
     out_ds = None  #close dataset to write to disc
