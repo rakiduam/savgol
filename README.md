@@ -1,2 +1,2 @@
-# savgol
+# funciones
 - muestras codigo usado python
